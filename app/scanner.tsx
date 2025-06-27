@@ -2,12 +2,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
 import { useRef, useState } from "react";
 import {
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 export default function App() {
@@ -52,26 +52,26 @@ export default function App() {
     try {
       console.log(`Scanned QR Code: ${data}`);
 
+      // Kiểm tra sessionId hoặc eventId trong mã QR
       const sessionIdMatch = data.match(/sessionId=([a-zA-Z0-9]+)/);
-      const sessionExpiredMatch = data.match(/expiredAt=([0-9]+)/); // fix regex
+      const eventIdMatch = data.match(/eventId=([a-zA-Z0-9]+)/);
+      const sessionExpiredMatch = data.match(/expiredAt=([0-9]+)/);
 
-      if (!sessionIdMatch || !sessionExpiredMatch) {
+      if (!sessionExpiredMatch || (!sessionIdMatch && !eventIdMatch)) {
         alert("Mã QR không hợp lệ. Vui lòng thử lại.");
         resetScanner();
         return;
       }
 
-      const sessionId = sessionIdMatch[1];
       const sessionExpiredAt = parseInt(sessionExpiredMatch[1]);
       console.log("Session Expired At:", sessionExpiredAt);
-      console.log("Session ID:", sessionId);
 
-      const user = await AsyncStorage.getItem("user");
-
-      if (!user) {
+      const userData = await AsyncStorage.getItem("user");
+      if (!userData) {
         // Lưu QR tạm nếu chưa đăng nhập
         const pendingQR = {
-          sessionId,
+          sessionId: sessionIdMatch ? sessionIdMatch[1] : null,
+          eventId: eventIdMatch ? eventIdMatch[1] : null,
           sessionExpiredAt,
           scannedAt: Date.now(),
         };
@@ -80,13 +80,20 @@ export default function App() {
         alert(
           "Bạn chưa đăng nhập. Mã QR đã được lưu tạm. Vui lòng đăng nhập để hoàn tất điểm danh."
         );
-
         resetScanner();
         return;
       }
 
-      // Đã đăng nhập, gọi API điểm danh
-      await sendAttendance(sessionId, JSON.parse(user).id);
+      // Gọi API điểm danh dựa trên sessionId hoặc eventId
+      if (sessionIdMatch) {
+        const sessionId = sessionIdMatch[1];
+        console.log("Session ID:", sessionId);
+        await sendAttendance(sessionId, JSON.parse(userData).id, "session");
+      } else if (eventIdMatch) {
+        const eventId = eventIdMatch[1];
+        console.log("Event ID:", eventId);
+        await sendAttendance(eventId, JSON.parse(userData).id, "event");
+      }
 
       resetScanner();
     } catch (error) {
@@ -96,11 +103,14 @@ export default function App() {
     }
   };
 
-  const sendAttendance = async (sessionId: string, userId: number) => {
+  const sendAttendance = async (id: string, userId: number,type: "session" | "event") => {
     try {
-        console.log("Gửi điểm danh với sessionId:", sessionId, "và userId:", userId);
-      const response = await fetch(
-        `https://5d05-27-65-52-60.ngrok-free.app/api/v1/attendance/${sessionId}`,
+      const endpoint =
+        type === "session"
+          ? `https://30f4-113-161-54-89.ngrok-free.app/api/v1/attendance/${id}`
+          : `https://30f4-113-161-54-89.ngrok-free.app/api/v1/event-attendance/${id}`;
+      console.log(`Gửi điểm danh ${type} với ID: ${id}, userId: ${userId}`);
+      const response = await fetch( endpoint,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -85,7 +85,7 @@ export default function App() {
 
       // Gọi API để điểm danh
       const response = await fetch(
-        `https://5d05-27-65-52-60.ngrok-free.app/api/v1/attendance/${sessionId}`,
+        `https://30f4-113-161-54-89.ngrok-free.app/api/v1/attendance/${sessionId}`,
         {
           method: "POST",
           headers: {

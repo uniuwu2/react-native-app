@@ -6,6 +6,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  user: () => Promise<any | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -13,6 +14,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   login: async () => {},
   logout: async () => {},
+  user: async () => null,
 });
 
 import { ReactNode } from "react";
@@ -34,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!email || !password) {
       throw new Error("Vui lòng nhập email và mật khẩu");
     }
-    const response = await fetch("https://5d05-27-65-52-60.ngrok-free.app/api/v1/app/login", {
+    const response = await fetch("https://30f4-113-161-54-89.ngrok-free.app/api/v1/app/login", {
       method: "POST",
       headers: {
           'Content-Type': 'application/json',
@@ -53,6 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw new Error("Email hoặc mật khẩu không đúng");
   };
 
+  const user = async () => {
+    // Lấy thông tin người dùng từ AsyncStorage
+    const userData = await AsyncStorage.getItem('user');
+    if (userData) {
+      return JSON.parse(userData);
+    }
+    return null;
+  };
+
   const logout = async () => {
     setIsAuthenticated(false);
     // Xoá token và thông tin người dùng khỏi AsyncStorage
@@ -62,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, loading, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, loading, login, logout, user }}>
       {children}
     </AuthContext.Provider>
   );

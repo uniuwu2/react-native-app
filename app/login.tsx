@@ -30,11 +30,15 @@ export default function LoginScreen() {
       const pendingQR = await AsyncStorage.getItem("pendingQR");
 
       if (pendingQR) {
-        const { sessionId } = JSON.parse(pendingQR);
+        const data = JSON.parse(pendingQR);
+        const sessionId = data.sessionId;
+        const sessionExpiredAt = data.sessionExpiredAt;
+        const scannedAt = data.scannedAt;
+       
         const user = await AsyncStorage.getItem("user");
 
         if (user) {
-          await sendAttendance(sessionId, JSON.parse(user).id);
+          await sendAttendance(sessionId, sessionExpiredAt, scannedAt, JSON.parse(user).id);
           await AsyncStorage.removeItem("pendingQR"); // Xoá QR tạm
         }
       }
@@ -46,14 +50,19 @@ export default function LoginScreen() {
     }
   };
 
-  const sendAttendance = async (sessionId: string, userId: number) => {
+  const sendAttendance = async (sessionId: string, sessionExpiredAt: number, scannedAt: number, userId: string) => {
     try {
       const response = await fetch(
-        `https://5d05-27-65-52-60.ngrok-free.app/api/v1/attendance/${sessionId}`,
+        `https://30f4-113-161-54-89.ngrok-free.app/api/v1/attendance/${sessionId}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, annonymous: true }),
+          body: JSON.stringify({
+            userId,
+            sessionExpiredAt,
+            scannedAt,
+            annonymous: true
+          })
         }
       );
 

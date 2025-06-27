@@ -6,49 +6,47 @@ import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar } from 'react-native-calendars';
 
-export default function HomeScreen() {
-  const { logout } = useAuth(); // Giả sử user chứa studentId
+export default function EventScreen() {
+  const { logout } = useAuth();
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [showSubjects, setShowSubjects] = useState(false);
-  const [schedule, setSchedule] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Gọi API để lấy lịch học
+  // Gọi API để lấy sự kiện
   useEffect(() => {
-    const fetchSchedule = async () => {
+    const fetchEvents = async () => {
       try {
         setLoading(true);
         const userData = await AsyncStorage.getItem('user');
         const user = userData ? JSON.parse(userData) : null;
+        console.log('User data:', user);
         if (!user || !user.id) {
           setError('Không tìm thấy thông tin sinh viên');
           return;
         }
 
-        const response = await fetch(`https://30f4-113-161-54-89.ngrok-free.app/api/v1/get-student-schedule/${user.id}`);
+        const response = await fetch(`https://30f4-113-161-54-89.ngrok-free.app/api/v1/get-student-events/${user.id}`);
         const result = await response.json();
-        
         if (response.status === 200) {
-          setSchedule(result.data);
+          setEvents(result.data);
         } else {
-          setError(result.message || 'Không thể lấy lịch học');
+          setError(result.message || 'Không thể lấy sự kiện');
         }
       } catch (err) {
-        console.error('Error fetching schedule:', err);
-        setError('Đã xảy ra lỗi khi lấy lịch học');
+        console.error('Error fetching events:', err);
+        setError('Đã xảy ra lỗi khi lấy sự kiện');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSchedule();
+    fetchEvents();
   }, []);
-  
 
-  // Đánh dấu các ngày có lịch học
-  const markedDates = schedule.reduce<Record<string, object>>((acc, item) => {
+  // Đánh dấu các ngày có sự kiện
+  const markedDates = events.reduce<Record<string, object>>((acc, item) => {
     const date = item.date; // Giả sử date có định dạng YYYY-MM-DD
     acc[date] = {
       marked: true,
@@ -62,27 +60,25 @@ export default function HomeScreen() {
   // Xử lý khi nhấn vào ngày
   const handleDayPress = (day: { dateString: string }) => {
     const date = day.dateString;
-    if (schedule.some((item) => item.date === date)) {
+    if (events.some((item) => item.date === date)) {
       setSelectedDate(date);
-      setShowSubjects(true);
     } else {
-      setShowSubjects(false);
       setSelectedDate(null);
     }
   };
 
-  // Lọc danh sách môn học theo ngày được chọn
-  const selectedSubjects = schedule.filter((item) => item.date === selectedDate);
+  // Lọc danh sách sự kiện theo ngày được chọn
+  const selectedEvents = events.filter((item) => item.date === selectedDate);
 
-  // Render môn học
-  const renderSubject = ({ item }: { item: any }) => (
-    <View style={[styles.subjectItem, { borderLeftColor: item.color, borderLeftWidth: 4 }]}>
-      <Text style={styles.subjectText}>{item.subject}</Text>
+  // Render sự kiện
+  const renderEvent = ({ item }: { item: any }) => (
+    <View style={[styles.eventItem, { borderLeftColor: item.color, borderLeftWidth: 4 }]}>
+      <Text style={styles.eventTitle}>{item.title}</Text>
+      <Text style={styles.eventDescription}>{item.description}</Text>
       <Text style={styles.timeText}>
         {item.startTime} - {item.endTime}
       </Text>
-      <Text style={styles.detailText}>Phòng: {item.room}</Text>
-      <Text style={styles.detailText}>Giảng viên: {item.teacher}</Text>
+      <Text style={styles.detailText}>Địa điểm: {item.location}</Text>
     </View>
   );
 
@@ -95,7 +91,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Lịch học</Text>
+        <Text style={styles.headerTitle}>Sự kiện</Text>
         <TouchableOpacity onPress={handleLogout} activeOpacity={0.7}>
           <Feather name="log-out" size={24} color="#dc3545" />
         </TouchableOpacity>
@@ -105,7 +101,7 @@ export default function HomeScreen() {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007bff" />
-          <Text style={styles.loadingText}>Đang tải lịch học...</Text>
+          <Text style={styles.loadingText}>Đang tải sự kiện...</Text>
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
@@ -113,7 +109,7 @@ export default function HomeScreen() {
         </View>
       ) : (
         <>
-          {/* Lịch học */}
+          {/* Lịch sự kiện */}
           <Calendar
             onDayPress={handleDayPress}
             markedDates={markedDates}
@@ -125,15 +121,15 @@ export default function HomeScreen() {
             }}
           />
 
-          {/* Hiển thị danh sách môn học */}
-          {showSubjects && selectedDate && selectedSubjects.length > 0 && (
-            <View style={styles.subjectsContainer}>
-              <Text style={styles.subjectsTitle}>Môn học ngày {selectedDate}</Text>
+          {/* Hiển thị danh sách sự kiện */}
+          {selectedDate && selectedEvents.length > 0 && (
+            <View style={styles.eventsContainer}>
+              <Text style={styles.eventsTitle}>Sự kiện ngày {selectedDate}</Text>
               <FlatList
-                data={selectedSubjects}
-                renderItem={renderSubject}
-                keyExtractor={(item) => `${item.courseId}-${item.startTime}`}
-                style={styles.subjectList}
+                data={selectedEvents}
+                renderItem={renderEvent}
+                keyExtractor={(item) => item.id.toString()}
+                style={styles.eventList}
               />
             </View>
           )}
@@ -184,7 +180,7 @@ const styles = StyleSheet.create({
     color: '#dc3545',
     textAlign: 'center',
   },
-  subjectsContainer: {
+  eventsContainer: {
     marginTop: 16,
     padding: 16,
     backgroundColor: '#ffffff',
@@ -195,25 +191,30 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  subjectsTitle: {
+  eventsTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#343a40',
     marginBottom: 12,
   },
-  subjectList: {
+  eventList: {
     maxHeight: 300,
   },
-  subjectItem: {
+  eventItem: {
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#dee2e6',
   },
-  subjectText: {
+  eventTitle: {
     fontSize: 16,
     fontWeight: '500',
     color: '#212529',
+  },
+  eventDescription: {
+    fontSize: 14,
+    color: '#6c757d',
+    marginTop: 4,
   },
   timeText: {
     fontSize: 14,

@@ -29,10 +29,17 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Lịch học',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
+      <Tabs.Screen
+      name="activities"
+      options={{
+        title: 'Sự kiện',
+        tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+      }}
+    />
       <Tabs.Screen
         name="qr-scanner"
         options={{
@@ -43,10 +50,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Lịch sử',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="clock.fill" color={color} />,
         }}
       />
+      
     </Tabs>
+    // lịch sự kiện
+    
   );
 }
