@@ -1,110 +1,230 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useAuth } from "@/contexts/AuthContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Feather } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { FlatList, StyleSheet, ActivityIndicator, SafeAreaView, View } from "react-native";
+import { useState, useEffect } from "react";
+import { ThemedView } from "@/components/ThemedView";
+import { ThemedText } from "@/components/ThemedText";
 
 export default function TabTwoScreen() {
+  const { logout } = useAuth();
+  const router = useRouter();
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Gọi API để lấy lịch sử điểm danh
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      try {
+        setLoading(true);
+        const userData = await AsyncStorage.getItem("user");
+        const user = userData ? JSON.parse(userData) : null;
+        console.log("User data:", user);
+        if (!user || !user.id) {
+          setError("Không tìm thấy thông tin sinh viên");
+          return;
+        }
+
+        // Lấy điểm danh môn học
+        const subjectResponse = await fetch(
+          `https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/get-student-attendance/${user.id}`
+        );
+        const subjectResult = await subjectResponse.json();
+        console.log("Subject attendance response:", subjectResult);
+
+        // Lấy điểm danh sự kiện
+        const eventResponse = await fetch(
+          `https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/get-student-event-attendance/${user.id}`
+        );
+        const eventResult = await eventResponse.json();
+        console.log("Event attendance response:", eventResult);
+
+        let combinedAttendance: any[] = [];
+        if (subjectResponse.status === 200) {
+          combinedAttendance = [...subjectResult.data];
+        } else {
+          setError(subjectResult.message || "Không thể lấy lịch sử điểm danh môn học");
+        }
+
+        if (eventResponse.status === 200) {
+          combinedAttendance = [
+            ...combinedAttendance,
+            ...eventResult.data.map((item: any) => ({
+              ...item,
+              subject: item.eventName, // Đồng bộ trường subject để hiển thị
+              room: item.location, // Đồng bộ trường room để hiển thị
+            })),
+          ];
+        } else {
+          setError(eventResult.message || "Không thể lấy lịch sử điểm danh sự kiện");
+        }
+
+        // Sắp xếp theo ngày giảm dần
+        combinedAttendance.sort((a, b) => new Date(b.checkedAt).getTime() - new Date(a.checkedAt).getTime());
+        setAttendance(combinedAttendance);
+      } catch (err) {
+        console.error("Error fetching attendance:", err);
+        setError("Đã xảy ra lỗi khi lấy lịch sử điểm danh");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAttendance();
+  }, []);
+
+  // Render mục điểm danh
+  const renderAttendance = ({ item }: { item: any }) => (
+    <ThemedView style={[styles.attendanceItem, { borderLeftColor: item.color, borderLeftWidth: 4 }]}>
+      <ThemedText type="defaultSemiBold">{item.subject}</ThemedText>
+      <ThemedText style={styles.timeText}>
+        {item.date} | {item.startTime} - {item.endTime}
+      </ThemedText>
+      <ThemedText style={styles.detailText}>
+        {item.room ? `Phòng: ${item.room}` : `Địa điểm: ${item.location}`}
+      </ThemedText>
+      {/* Thời gian checkAt, nếu không có thì hiển thị "Chưa điểm danh" */}
+      <ThemedText style={styles.timeText}>
+        {item.checkedAt ? `Thời gian điểm danh: ${new Date(item.checkedAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}` : "Chưa điểm danh"}
+      </ThemedText>
+      <ThemedText
+        style={[
+          styles.detailText,
+          {
+            color:
+              item.status === "Có mặt"
+                ? "#28a745"
+                : item.status === "Vắng"
+                ? "#dc3545"
+                : "#ffc107",
+          },
+        ]}
+      >
+        Trạng thái: {item.status}
+      </ThemedText>
+    </ThemedView>
+  );
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/login");
+  };
+
+  // Render header
+  const renderHeader = () => (
+    <ThemedView style={styles.titleContainer}>
+      <ThemedText type="title">Lịch sử điểm danh</ThemedText>
+      <Feather
+        name="log-out"
+        size={24}
+        color="#dc3545"
+        onPress={handleLogout}
+        style={styles.logoutIcon}
+      />
+    </ThemedView>
+  );
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <SafeAreaView style={styles.container}>
+      {loading ? (
+        <ThemedView style={styles.loadingContainer}>
+          {renderHeader()}
+          <ActivityIndicator size="large" color="#007bff" />
+          <ThemedText style={styles.loadingText}>Đang tải lịch sử điểm danh...</ThemedText>
+        </ThemedView>
+      ) : error ? (
+        <ThemedView style={styles.errorContainer}>
+          {renderHeader()}
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+        </ThemedView>
+      ) : (
+        <FlatList
+          data={attendance}
+          renderItem={renderAttendance}
+          keyExtractor={(item) => item.id.toString()}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={
+            <ThemedView style={styles.emptyContainer}>
+              <ThemedText style={styles.emptyText}>Không có dữ liệu điểm danh</ThemedText>
+            </ThemedView>
+          }
+          style={styles.attendanceList}
+          contentContainerStyle={styles.attendanceContainer}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      )}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
   },
   titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  logoutIcon: {
+    padding: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#dc3545",
+    textAlign: "center",
+  },
+  attendanceContainer: {
+    padding: 16,
+  },
+  attendanceList: {
+    flex: 1,
+  },
+  attendanceItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#dee2e6",
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  timeText: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  detailText: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "#6c757d",
+    textAlign: "center",
   },
 });

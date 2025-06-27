@@ -14,9 +14,9 @@ export default function App() {
   const [facing, setFacing] = useState<CameraType>("back");
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const lastScanTime = useRef(0); // Sử dụng useRef để lưu thời gian quét cuối
-  const isProcessing = useRef(false); // Khóa để ngăn xử lý đồng thời
-  const qrCodeScannerRef = useRef(null); // Ref cho QRCodeScanner
+  const lastScanTime = useRef(0);
+  const isProcessing = useRef(false);
+
   if (!permission) {
     return <View style={styles.loadingContainer} />;
   }
@@ -83,17 +83,17 @@ export default function App() {
         resetScanner();
         return;
       }
-
-      // Gọi API điểm danh dựa trên sessionId hoặc eventId
-      if (sessionIdMatch) {
-        const sessionId = sessionIdMatch[1];
-        console.log("Session ID:", sessionId);
-        await sendAttendance(sessionId, JSON.parse(userData).id, "session");
-      } else if (eventIdMatch) {
-        const eventId = eventIdMatch[1];
-        console.log("Event ID:", eventId);
-        await sendAttendance(eventId, JSON.parse(userData).id, "event");
-      }
+      // const user = JSON.parse(userData);
+      // // Gọi API điểm danh dựa trên sessionId hoặc eventId
+      // if (sessionIdMatch) {
+      //   const sessionId = sessionIdMatch[1];
+      //   console.log("Session ID:", sessionId);
+      //   await sendAttendance(sessionId, user.id, "session");
+      // } else if (eventIdMatch) {
+      //   const eventId = eventIdMatch[1];
+      //   console.log("Event ID:", eventId);
+      //   await sendAttendance(eventId, user.id, "event");
+      // }
 
       resetScanner();
     } catch (error) {
@@ -103,31 +103,30 @@ export default function App() {
     }
   };
 
-  const sendAttendance = async (id: string, userId: number,type: "session" | "event") => {
+  const sendAttendance = async (id: string, userId: number, type: "session" | "event") => {
     try {
       const endpoint =
         type === "session"
-          ? `https://30f4-113-161-54-89.ngrok-free.app/api/v1/attendance/${id}`
-          : `https://30f4-113-161-54-89.ngrok-free.app/api/v1/event-attendance/${id}`;
+          ? `https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/attendance/${id}`
+          : `https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/event-attendance/${id}`;
       console.log(`Gửi điểm danh ${type} với ID: ${id}, userId: ${userId}`);
-      const response = await fetch( endpoint,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId }),
-        }
-      );
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
 
       const result = await response.json();
 
-      if (result.status == 200) {
+      if (result.status === 200) {
         alert(result.message);
       } else {
         alert(`${result.message}`);
       }
     } catch (error) {
-      console.error("Lỗi khi gọi API điểm danh:", error);
-      alert("Có lỗi khi gửi điểm danh.");
+      console.error(`Lỗi khi gọi API điểm danh ${type}:`, error);
+      alert(`Có lỗi khi gửi điểm danh ${type}.`);
     }
   };
 
@@ -148,7 +147,7 @@ export default function App() {
       <CameraView
         style={styles.camera}
         facing={facing}
-        onBarcodeScanned={handleBarcodeScanned}
+        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
       >
         <View style={styles.scanOverlay}>
           <View style={styles.scanFrame} />

@@ -27,7 +27,7 @@ export default function EventScreen() {
           return;
         }
 
-        const response = await fetch(`https://30f4-113-161-54-89.ngrok-free.app/api/v1/get-student-events/${user.id}`);
+        const response = await fetch(`https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/get-student-events/${user.id}`);
         const result = await response.json();
         if (response.status === 200) {
           setEvents(result.data);

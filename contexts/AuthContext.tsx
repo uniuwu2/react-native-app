@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!email || !password) {
       throw new Error("Vui lòng nhập email và mật khẩu");
     }
-    const response = await fetch("https://30f4-113-161-54-89.ngrok-free.app/api/v1/app/login", {
+    const response = await fetch("https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/app/login", {
       method: "POST",
       headers: {
           'Content-Type': 'application/json',

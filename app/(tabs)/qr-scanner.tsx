@@ -54,10 +54,11 @@ export default function App() {
     try {
       console.log(`Scanned QR Code: ${data}`);
 
-      // Lấy sessionId từ QR code
+      // Kiểm tra sessionId hoặc eventId trong mã QR
       const sessionIdMatch = data.match(/sessionId=([a-zA-Z0-9]+)/);
-      const sessionExpiredMatch = data.match(/expiredAt=([a-zA-Z0-9]+)/);
-      if (!sessionIdMatch || !sessionExpiredMatch) {
+      const eventIdMatch = data.match(/eventId=([a-zA-Z0-9]+)/);
+      const sessionExpiredMatch = data.match(/expiredAt=([0-9]+)/);
+      if (!sessionExpiredMatch || (!sessionIdMatch && !eventIdMatch)) {
         alert("Mã QR không hợp lệ. Vui lòng thử lại.");
         setTimeout(() => {
           setScanned(false);
@@ -65,17 +66,23 @@ export default function App() {
         }, 2000);
         return;
       }
-
-      const sessionId = sessionIdMatch[1];
-      const sessionExpiredAt = sessionExpiredMatch[1];
+      const sessionExpiredAt = parseInt(sessionExpiredMatch[1]);
       console.log("Session Expired At:", sessionExpiredAt);
-      console.log("Session ID:", sessionId);
+      const userData = await AsyncStorage.getItem("user");
+      console.log("User Data:", userData);
+      if (!userData) {
+        // Lưu QR tạm nếu chưa đăng nhập
+        const pendingQR = {
+          sessionId: sessionIdMatch ? sessionIdMatch[1] : null,
+          eventId: eventIdMatch ? eventIdMatch[1] : null,
+          sessionExpiredAt,
+          scannedAt: Date.now(),
+        };
 
-      // Lấy dữ liệu người dùng từ AsyncStorage
-      const user = await AsyncStorage.getItem("user");
-      console.log("User data:", user);
-      if (!user) {
-        alert("Bạn chưa đăng nhập. Vui lòng đăng nhập để điểm danh.");
+        await AsyncStorage.setItem("pendingQR", JSON.stringify(pendingQR));
+        alert(
+          "Bạn chưa đăng nhập. Mã QR đã được lưu tạm. Vui lòng đăng nhập để hoàn tất điểm danh."
+        );
         setTimeout(() => {
           setScanned(false);
           isProcessing.current = false;
@@ -83,17 +90,27 @@ export default function App() {
         return;
       }
 
-      // Gọi API để điểm danh
-      const response = await fetch(
-        `https://30f4-113-161-54-89.ngrok-free.app/api/v1/attendance/${sessionId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userId: JSON.parse(user).id, sessionExpiredAt }),
-        }
-      );
+      // Gọi API điểm danh dựa trên sessionId hoặc eventId
+      let endpoint = "";
+      if (sessionIdMatch) {
+        const sessionId = sessionIdMatch[1];
+        endpoint = `https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/attendance/${sessionId}`;
+        console.log("Session ID:", sessionId);
+      } else if (eventIdMatch) {
+        const eventId = eventIdMatch[1];
+        endpoint = `https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/event-attendance/${eventId}`;
+        console.log("Event ID:", eventId);
+      }
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: JSON.parse(userData).id,
+          sessionExpiredAt,
+        }),
+      });
       const result = await response.json();
 
       if (result.status == 200) {

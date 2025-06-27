@@ -34,11 +34,20 @@ export default function LoginScreen() {
         const sessionId = data.sessionId;
         const sessionExpiredAt = data.sessionExpiredAt;
         const scannedAt = data.scannedAt;
+        const eventId = data.eventId;
+        console.log("Pending QR:", data);
        
         const user = await AsyncStorage.getItem("user");
 
         if (user) {
-          await sendAttendance(sessionId, sessionExpiredAt, scannedAt, JSON.parse(user).id);
+          if (sessionId) {
+            console.log("Gửi điểm danh session với ID:", sessionId);
+            await sendAttendance(sessionId, JSON.parse(user).id, "session");
+          } else if (eventId) {
+            console.log("Gửi điểm danh event với ID:", eventId);
+            await sendAttendance(eventId, JSON.parse(user).id, "event");
+          }
+          // await sendAttendance(sessionId, sessionExpiredAt, scannedAt, JSON.parse(user).id);
           await AsyncStorage.removeItem("pendingQR"); // Xoá QR tạm
         }
       }
@@ -50,32 +59,30 @@ export default function LoginScreen() {
     }
   };
 
-  const sendAttendance = async (sessionId: string, sessionExpiredAt: number, scannedAt: number, userId: string) => {
+  const sendAttendance = async (id: string, userId: number, type: "session" | "event") => {
     try {
-      const response = await fetch(
-        `https://30f4-113-161-54-89.ngrok-free.app/api/v1/attendance/${sessionId}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId,
-            sessionExpiredAt,
-            scannedAt,
-            annonymous: true
-          })
-        }
-      );
+      const endpoint =
+        type === "session"
+          ? `https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/attendance/${id}`
+          : `https://e371-2402-800-63b7-b748-b40f-558b-a96e-7765.ngrok-free.app/api/v1/event-attendance/${id}`;
+      console.log(`Gửi điểm danh ${type} với ID: ${id}, userId: ${userId}`);
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
 
       const result = await response.json();
 
       if (result.status === 200) {
-        Alert.alert("Thành công", result.message);
+        alert(result.message);
       } else {
-        Alert.alert("Lỗi", result.message);
+        alert(`${result.message}`);
       }
     } catch (error) {
-      console.error("Lỗi khi gọi API điểm danh:", error);
-      Alert.alert("Lỗi", "Có lỗi khi gửi điểm danh.");
+      console.error(`Lỗi khi gọi API điểm danh ${type}:`, error);
+      alert(`Có lỗi khi gửi điểm danh ${type}.`);
     }
   };
 
